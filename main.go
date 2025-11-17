@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -30,12 +29,7 @@ func main() {
 	}()
 
 	// 2) spust listener (handler běží v goroutině)
-	v.RunListener(func(pkt []byte) {
-		// Pozor: pkt může být sdílený buffer z wintun, pokud ho chceš zpracovat asynchronně,
-		// musíš si ho zkopírovat. Tady pouze vypíšeme délku.
-		// Pokud chceš zpracovávat mimo tuto gorutinu, udělej copy := append([]byte(nil), pkt...)
-		fmt.Printf("přijato %d bytů\n", len(pkt))
-	})
+	v.RunListener()
 
 	// 3) nastav IP na adapteru (netsh vyžaduje admin práva)
 	ip := "10.0.0.1"
@@ -59,4 +53,5 @@ func main() {
 	log.Println("shutdown...")
 	
 	v.Close()
+
 }

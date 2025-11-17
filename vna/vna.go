@@ -3,7 +3,6 @@ package vna
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -18,6 +17,8 @@ type VNA struct {
 	cancel  context.CancelFunc
 	
 	wg     sync.WaitGroup
+	PacketChan chan []byte
+
 
 }
 
@@ -26,6 +27,7 @@ func New(name string, bufferSize uint32) (*VNA, error) {
     
 	///create virtual network interface
 	iface, err := wintun.CreateAdapter(name, "Wintun", nil)
+
     if err != nil {
         return nil, fmt.Errorf("CreateAdapter: %w", err)
     }
@@ -44,12 +46,13 @@ func New(name string, bufferSize uint32) (*VNA, error) {
 		name: name, 
 		ctx: ctx, 
 		cancel: cancel,
+		PacketChan: make(chan []byte,100),
 		}, nil
 }
 
 // RunListener spustí goroutine, která čte pakety a předává je do handleru.
 // handler musí do sebe kopírovat data pokud je bude chtít zpracovat asynchronně.
-func (v *VNA) RunListener(handler func([]byte)) {
+func (v *VNA) RunListener() {
 	v.wg.Add(1)
 	go func() {
 		defer v.wg.Done()
@@ -71,15 +74,17 @@ func (v *VNA) RunListener(handler func([]byte)) {
 				default:
 				}
 				// logni a čekej malinko před dalším pokusem
-				log.Printf("ReceivePacket error: %v; retrying...", err)
+				//log.Printf("ReceivePacket error: %v; retrying...", err)
 				time.Sleep(50 * time.Millisecond)
 				continue
 			}
-
-			// předání paketu handleru (pokud potřebuješ aby handler neběhal v této goroutine,
-			// může handler sám poslat kopii paketu do kanálu/gorutiny)
-			handler(packet)
-
+			copyPkt := append([]byte(nil), packet...) // kopie kvůli Wintun bufferu
+			
+			select {
+			case v.PacketChan <- copyPkt: ////nonblocking send 
+			default:
+			}
+			
 			// uvolnit buffer
 			v.Session.ReleaseReceivePacket(packet)
 		}
@@ -97,7 +102,20 @@ func (v *VNA) Close() {
 
 	// 3) počkej na ukončení gorutin
 	v.wg.Wait()
+	
+	close(v.PacketChan)////zavreme kanal
 
 	// 4) uzavři adapter
 	v.Iface.Close()
+}
+
+
+func (v *VNA) StartLogger() {
+    v.wg.Add(1)
+    go func() {
+        defer v.wg.Done()
+        for p := range v.PacketChan {
+            fmt.Printf("[LOGGER] Packet (%d bytes)\n", len(p))
+        }
+    }()
 }
