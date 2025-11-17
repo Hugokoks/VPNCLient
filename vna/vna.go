@@ -16,7 +16,9 @@ type VNA struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	
-	wg     sync.WaitGroup
+	wg        sync.WaitGroup // producers (listeners)
+    loggerWg  sync.WaitGroup // consumers (logger, encryptor, sender)
+	
 	PacketChan chan []byte
 
 
@@ -84,7 +86,7 @@ func (v *VNA) RunListener() {
 			case v.PacketChan <- copyPkt: ////nonblocking send 
 			default:
 			}
-			
+
 			// uvolnit buffer
 			v.Session.ReleaseReceivePacket(packet)
 		}
@@ -104,6 +106,8 @@ func (v *VNA) Close() {
 	v.wg.Wait()
 	
 	close(v.PacketChan)////zavreme kanal
+	
+	v.loggerWg.Wait()
 
 	// 4) uzavři adapter
 	v.Iface.Close()
@@ -111,9 +115,9 @@ func (v *VNA) Close() {
 
 
 func (v *VNA) StartLogger() {
-    v.wg.Add(1)
+    v.loggerWg.Add(1)
     go func() {
-        defer v.wg.Done()
+        defer v.loggerWg.Done()
         for p := range v.PacketChan {
             fmt.Printf("[LOGGER] Packet (%d bytes)\n", len(p))
         }

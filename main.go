@@ -30,7 +30,7 @@ func main() {
 
 	// 2) spust listener (handler běží v goroutině)
 	v.RunListener()
-
+	v.StartLogger()
 	// 3) nastav IP na adapteru (netsh vyžaduje admin práva)
 	ip := "10.0.0.1"
 	mask := "255.255.255.0"
