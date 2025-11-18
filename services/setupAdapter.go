@@ -23,8 +23,7 @@ func SetupIP(ifName, ip, mask string) error {
 		"interface", "ip", "set", "address",
 		nameArg, "static", ip, mask)
 
-
-	////chytame errory a vystupy z commandu abychom je mohli nakonci programu vypsat 
+	////chytame errory a vystupy z commandu abychom je mohli nakonci programu vypsat
 	var out bytes.Buffer
 
 	cmd.Stdout = &out
@@ -35,4 +34,8 @@ func SetupIP(ifName, ip, mask string) error {
 		return fmt.Errorf("netsh failed: %v: %s", err, out.String())
 	}
 	return nil
+}
+
+func SetupRoute() {
+
 }

@@ -30,7 +30,7 @@ func main() {
 
 	// 2) spust listener (handler běží v goroutině)
 	v.RunListener()
-	v.StartLogger()
+	v.RunEncryptor()
 	// 3) nastav IP na adapteru (netsh vyžaduje admin práva)
 	ip := "10.0.0.1"
 	mask := "255.255.255.0"
@@ -42,16 +42,15 @@ func main() {
 		log.Printf("Nastavena IP %s/%s na rozhraní %q", ip, mask, ifName)
 	}
 
-
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
-	
+
 	log.Println("VNA běží — stiskni Ctrl+C pro ukončení")
-	
+
 	// čekej na signál
 	<-sigs
 	log.Println("shutdown...")
-	
+
 	v.Close()
 
 }
