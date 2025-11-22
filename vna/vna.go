@@ -13,19 +13,25 @@ import (
 type VNA struct {
 	Iface   *wintun.Adapter
 	Session wintun.Session
-	name    string
+	IfName    string
+	IP 		string
+	Mask    string
+	AdapterIndex int
 	ctx     context.Context
 	cancel  context.CancelFunc
+	closeOnce sync.Once
+
+
 
 	wg sync.WaitGroup // producers (listeners)
 
 	PacketChan chan []byte
 }
 
-func New(name string, bufferSize uint32) (*VNA, error) {
+func New(rootCtx context.Context, ifName string,ip string,mask string, bufferSize uint32) (*VNA, error) {
 
 	///create virtual network interface
-	iface, err := wintun.CreateAdapter(name, "Wintun", nil)
+	iface, err := wintun.CreateAdapter(ifName, "Wintun", nil)
 
 	if err != nil {
 		return nil, fmt.Errorf("CreateAdapter: %w", err)
@@ -38,11 +44,14 @@ func New(name string, bufferSize uint32) (*VNA, error) {
 		return nil, fmt.Errorf("StartSession: %w", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+    ctx, cancel := context.WithCancel(rootCtx)
+
 	return &VNA{
 		Iface:      iface,
 		Session:    sess,
-		name:       name,
+		IfName:     ifName,
+		IP: 		ip,
+		Mask: 		mask,
 		ctx:        ctx,
 		cancel:     cancel,
 		PacketChan: make(chan []byte, 5000),
@@ -94,12 +103,12 @@ func (v *VNA) RunEncryptor() {
 		var packetCount int
 		var lastLog = time.Now()
 
-		// 🛑 TATO SMYČKA ČTE DATA A TÍM UVOLŇUJE KANÁL
+		// TATO SMYČKA ČTE DATA A TÍM UVOLŇUJE KANÁL
 		for rawPacket := range v.PacketChan {
 
 			// Logika detekce ICMP zůstává stejná, ale nyní se provede
 			if len(rawPacket) >= 20 && rawPacket[9] == 1 {
-				log.Println("ICMP paket přijat a zpracován.")
+				log.Println("ICMP packet recieved.")
 			}
 
 			// Zde by normálně probíhalo šifrování a odeslání do sítě.
@@ -107,28 +116,52 @@ func (v *VNA) RunEncryptor() {
 
 			packetCount++
 			if time.Since(lastLog) >= 1*time.Second {
-				log.Printf("[Encryptor] Rychlost: %d paketů/s", packetCount)
+				log.Printf("[Encryptor] Speed: %d packet:", packetCount)
 				packetCount = 0
 				lastLog = time.Now()
 			}
 		}
-		log.Println("[Encryptor] Ukončeno zpracování INBOUND paketů.")
+		log.Println("[Encryptor] ended.")
 	}()
 }
 
-// Close bezpečně ukončí listener a uvolní resources
+
+func (v *VNA) Start(){
+
+	v.RunListener()
+	v.RunEncryptor()
+
+}
+func (v *VNA) Stop(){
+
+	v.Close()
+}
+
 func (v *VNA) Close() {
-	// 1) signalizuj gorutinám, aby se ukončily
-	v.cancel()
+	v.closeOnce.Do(func (){
+		
+		////close all goruntines
+		v.cancel()
+		
+		///end session
+		v.Session.End()
+		
+		// cleanup route
+    	if v.AdapterIndex != 0 {
+    	    if err := v.RemoveRoute(); err != nil {
+    	        fmt.Println("warning: could not remove route:", err)
+    	    }
+    	}
 
-	// 2) ukonči session -- tím se uvolní blokované ReceivePacket volání
-	//    (kdybys čekal jen na cancel, ReceivePacket může zůstat blokované)
-	v.Session.End()
+		////delete chan
+		close(v.PacketChan) 
 
-	close(v.PacketChan) ////zavreme kanal
-	// 3) počkej na ukončení gorutin
-	v.wg.Wait()
+		////wait for goruntines to close
+		v.wg.Wait()
 
-	// 4) uzavři adapter
-	v.Iface.Close()
+		///delete interface
+		v.Iface.Close()
+
+	})
+
 }

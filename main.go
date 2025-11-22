@@ -1,56 +1,59 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"VPNClient/services"
 	"VPNClient/vna"
 )
 
 func main() {
-	// jméno interface
-	ifName := "MyVirtualAdapter"
+	////root context 
 
-	// bufferSize pro StartSession - zkus 64kB (uprav podle potřeby)
-	var bufferSize uint32 = 0x200000 // 2 MB — doporučeno Wintunem
+	rootCtx, rootCancel := context.WithCancel(context.Background())
 
-	// 1) vytvoř VNA
-	v, err := vna.New(ifName, bufferSize)
-	if err != nil {
-		log.Fatalf("nepovedlo se vytvořit VNA: %v", err)
-	}
-	// zajistíme zavření při ukončení mainu
-	defer func() {
-		// Close čeká na ukončení gorutin a zavře adapter
-		v.Close()
+	defer rootCancel()
+
+	////signal handler
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	
+	////goruntine checking signal for end
+	go func ()  {
+		<- sigs
+		log.Println("signal recieved, canceling root context")
+		rootCancel()
 	}()
 
-	// 2) spust listener (handler běží v goroutině)
-	v.RunListener()
-	v.RunEncryptor()
-	// 3) nastav IP na adapteru (netsh vyžaduje admin práva)
+	ifName := "MyVirtualAdapter"
 	ip := "10.0.0.1"
 	mask := "255.255.255.0"
 
-	if err := services.SetupIP(ifName, ip, mask); err != nil {
-		// pokud netsh selže, vypíšeme chybu, ale listener stále běží (můžeš se rozhodnout ukončit)
-		log.Printf("SetupIP selhalo: %v", err)
-	} else {
-		log.Printf("Nastavena IP %s/%s na rozhraní %q", ip, mask, ifName)
+	///buffer size 2 Mb
+	var bufferSize uint32 = 0x200000 
+
+	////Create Virtual Network Adapter
+	vna, err := vna.New(rootCtx,ifName,ip,mask, bufferSize)
+
+	if err != nil {
+		log.Fatalf("nepovedlo se vytvořit VNA: %v", err)
 	}
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+    defer vna.Stop()
+	
+	vna.Start()
+
+	if err := vna.SetupAdapter(); err != nil{
+		fmt.Println(err)
+		rootCancel();
+	}
 
 	log.Println("VNA běží — stiskni Ctrl+C pro ukončení")
-
-	// čekej na signál
-	<-sigs
-	log.Println("shutdown...")
-
-	v.Close()
+    <-rootCtx.Done()
+    log.Println("main exiting")
 
 }
