@@ -16,11 +16,17 @@ func (v *VNA) RemoveRoute() error {
     ctxDel, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
 
+	/*
     delCmd := []string{
         "netsh", "interface", "ipv4", "delete", "route",
         "0.0.0.0/0", strconv.Itoa(v.AdapterIndex), v.IP,
     }
-
+	*/
+	////delete testing route
+	delCmd := []string{
+        "netsh", "interface", "ipv4", "delete", "route",
+        "10.0.0.0/24", strconv.Itoa(v.AdapterIndex),
+    }
     return services.RunCommand(ctxDel, delCmd)
 }
 
@@ -43,6 +49,8 @@ func getAdapterIndexFromNetsh(output, ifName string) (int, error) {
 	}
 	return 0, fmt.Errorf("interface %q not found", ifName)
 }
+
+
 
 // SetupAdapter configures IP + default route using fields stored in the VNA struct.
 func (v *VNA) SetupAdapter() error {
@@ -79,16 +87,27 @@ func (v *VNA) SetupAdapter() error {
 
 
 	// ============ SET DEFAULT ROUTE ============
+	/*
 	cmdRoute := []string{
 		"netsh", "interface", "ipv4", "add", "route",
 		"0.0.0.0/0", strconv.Itoa(v.AdapterIndex), v.IP, "metric=1",
-	}
+	}*/
+
+	////Tunel test for IP 
+	cmdRoute := []string{"netsh","interface","ipv4","add","route","10.0.0.0/24",strconv.Itoa(v.AdapterIndex),v.IP}
 
 	if err := services.RunCommand(ctx, cmdRoute); err != nil {
 		return fmt.Errorf("setup default route failed: %w", err)
 	}
 
 
+	// ============ SET CONNECTION ============
+	if err := v.InitConnection(); err != nil{
+
+		return  fmt.Errorf("connection setup failed %v",err)
+
+	}
+	fmt.Println("Connection successully set")
 
 	return nil
 }
