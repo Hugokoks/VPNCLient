@@ -2,37 +2,33 @@ package vna
 
 import (
 	"fmt"
-	"time"
 )
 
 func (v *VNA) RunClientListener() {
-	v.wg.Add(1)
-	go func() {
-		defer v.wg.Done()
+    v.wg.Add(1)
+    go func() {
+        defer v.wg.Done()
 
+        buf := make([]byte, 65535)
 
-		buf := make([]byte, 65535)
-
-		for {
-			if v.CtxStopped(){
-
-				return
-			}
-            _ = v.Conn.SetReadDeadline(time.Now().Add(1 * time.Second)) ////wait for data max 1sec 
-
-			n, _, err := v.Conn.ReadFromUDP(buf)
-			  
-			if err != nil {
-                continue
+        for {
+            if v.CtxStopped() {
+                return
             }
 
-			pkt := make([]byte,n)
-			
-			copy(pkt,buf[:n])
-			fmt.Printf("Listened packet, len=%d\n", len(pkt))
+            ipPkt, err := recvDecrypted(v.Aead, v.Conn,buf)
+            if err != nil {
+                continue
+            }
+            sendBuf, err := v.Session.AllocateSendPacket(len(ipPkt))
+            if err != nil {
+                fmt.Println("AllocateSendPacket error:", err)
+                continue
+            }
+            copy(sendBuf, ipPkt)
 
-			v.Session.SendPacket(pkt)
-		
-		}
-	}()
+            fmt.Printf("Listened packet, len=%d\n", len(ipPkt))
+            v.Session.SendPacket(sendBuf)
+        }
+    }()
 }

@@ -2,6 +2,7 @@ package vna
 
 import (
 	"context"
+	"crypto/cipher"
 	"fmt"
 	"net"
 	"sync"
@@ -30,9 +31,14 @@ type VNA struct {
 
 	Conn *net.UDPConn
 	PacketChan chan []byte
+	HandShakeDone chan struct{}
+
+	Aead cipher.AEAD
+	Keys CryptoKeys
+
 }
 
-func New(rootCtx context.Context, ifName string,ip string,mask string) (*VNA, error) {
+func New(rootCtx context.Context, ifName string,ip string,mask string,remoteAddr string,localAddr string) (*VNA, error) {
 
 	///create virtual network interface
 	iface, err := wintun.CreateAdapter(ifName, "Wintun", nil)
@@ -41,8 +47,8 @@ func New(rootCtx context.Context, ifName string,ip string,mask string) (*VNA, er
 		return nil, fmt.Errorf("CreateAdapter: %w", err)
 	}
 
-	///buffer size 2 Mb
-	var bufferSize uint32 = 0x200000 
+	///buffer size 8 Mb
+	var bufferSize uint32 = 0x800000 
 
 	////start session
 	sess, err := iface.StartSession(bufferSize)
@@ -50,8 +56,9 @@ func New(rootCtx context.Context, ifName string,ip string,mask string) (*VNA, er
 		iface.Close()
 		return nil, fmt.Errorf("StartSession: %w", err)
 	}
-
-    ctx, cancel := context.WithCancel(rootCtx)
+	
+	ctx, cancel := context.WithCancel(rootCtx)
+	
 
 	return &VNA{
 		Iface:      iface,
@@ -61,21 +68,24 @@ func New(rootCtx context.Context, ifName string,ip string,mask string) (*VNA, er
 		Mask: 		mask,
 		ctx:        ctx,
 		cancel:     cancel,
-		PacketChan: make(chan []byte, 4096),
-		RemoteAddr: "192.168.8.236:5000",
-		LocalAddr: ":5000",
+		PacketChan: make(chan []byte, 16384),
+		RemoteAddr: remoteAddr,
+		LocalAddr: localAddr ,
+		HandShakeDone: make(chan struct{}),
 
 	}, nil
+
+	
+	
 }
 
 
+//var sharedKey = []byte("12345678901234567890123456789012") // 32 bytů
 
 func (v *VNA) Start(){
-
 	v.RunReader()
 	v.RunSender()
 	v.RunClientListener()
-
 }
 func (v *VNA) Stop(){
 

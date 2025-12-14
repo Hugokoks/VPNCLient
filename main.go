@@ -9,12 +9,16 @@ import (
 	"syscall"
 
 	"VPNClient/vna"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	////root context 
 
 	rootCtx, rootCancel := context.WithCancel(context.Background())
+	
+	_ = godotenv.Load() 
 
 	defer rootCancel()
 
@@ -30,8 +34,8 @@ func main() {
 	}()
 
 	////Create Virtual Network Adapter
-	vna, err := vna.New(rootCtx,"vpn0","10.0.0.1","255.255.255.0")
-
+	vna, err := vna.New(rootCtx,"vpn0","10.0.0.2","255.255.255.255","192.168.0.50:5000",":5000")
+	
 	if err != nil {
 		log.Fatalf("nepovedlo se vytvořit VNA: %v", err)
 	}
@@ -42,9 +46,7 @@ func main() {
 		rootCancel();
 	}
 
-	vna.Start()
-
-	
+	vna.Start()	
 	log.Println("VNA běží — stiskni Ctrl+C pro ukončení")
     <-rootCtx.Done()
     log.Println("main exiting")

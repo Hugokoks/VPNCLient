@@ -6,35 +6,33 @@ import (
 )
 
 func (v *VNA) RunSender() {
-    v.wg.Add(1)
+	v.wg.Add(1)
 
-    go func() {
-        defer v.wg.Done()
+	go func() {
+		defer v.wg.Done()
 
-        for {
-            
-        
-            select{
-            
-            case <- v.ctx.Done():
-                return
-            
-            case pkt, ok := <-v.PacketChan:
-                
-                if !ok || pkt == nil {
-                    return 
-                }
-              
-                v.Conn.SetWriteDeadline(time.Now().Add(1 * time.Second)) 
-                _, err := v.Conn.Write(pkt)
-                
-                if err != nil {
+		select {
+		case <-v.HandShakeDone:
+		case <-v.ctx.Done():
+			return
+		}
 
-                    fmt.Println("udp write error:", err)
-                }
-            }  
-        
-        }
-        
-    }()
+		for {
+			select {
+			case <-v.ctx.Done():
+				return
+
+			case pkt, ok := <-v.PacketChan:
+				if !ok || pkt == nil {
+					return
+				}
+
+				_ = v.Conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+
+				if err := sendEncrypted(v.Aead, v.Conn, pkt); err != nil {
+					fmt.Println("udp write error:", err)
+				}
+			}
+		}
+	}()
 }
