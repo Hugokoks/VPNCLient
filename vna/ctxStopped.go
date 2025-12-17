@@ -1,6 +1,6 @@
 package vna
 
-func (v *VNA) CtxStopped() bool {
+func (v *VNA) ctxStopped() bool {
 	select {
 	case <-v.ctx.Done():
 		return true

@@ -8,6 +8,7 @@ func (v *VNA) Start(){
 
 	// Start blocks until handshake is successfully completed
 	<- v.handshakeReady
+	
 	v.wg.Add(1)
 	go v.runReader()
 	

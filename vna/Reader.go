@@ -7,7 +7,7 @@ func (v *VNA) runReader() {
 	defer v.wg.Done()
 
 	for {
-		if v.CtxStopped() {
+		if v.ctxStopped() {
 			return
 		}
 		////win tun pkt
@@ -20,7 +20,7 @@ func (v *VNA) runReader() {
 		///create own pkt
 		copyPkt := make([]byte, len(pkt))
 		copy(copyPkt, pkt)
-		
+
 		select {
 		case v.PacketChan <- copyPkt:
 		default:

@@ -12,7 +12,7 @@ func (v *VNA) runClientListener() {
     buf := make([]byte, 65535)
 
     for {
-        if v.CtxStopped() {
+        if v.ctxStopped() {
             return
         }
         v.Conn.SetReadDeadline(time.Now().Add(1 * time.Second))
