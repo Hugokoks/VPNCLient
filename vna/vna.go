@@ -3,12 +3,18 @@ package vna
 import (
 	"context"
 	"crypto/cipher"
+	"crypto/ed25519"
 	"fmt"
 	"net"
 	"sync"
 
 	"golang.zx2c4.com/wintun"
 )
+type CryptoKeys struct{
+
+    ServerPub ed25519.PublicKey
+    SharedKey []byte 
+}
 
 ////struct for windows
 type VNA struct {
@@ -31,7 +37,8 @@ type VNA struct {
 
 	Conn *net.UDPConn
 	PacketChan chan []byte
-	HandShakeDone chan struct{}
+	handshakeReady chan struct{}
+
 
 	Aead cipher.AEAD
 	Keys CryptoKeys
@@ -71,53 +78,9 @@ func New(rootCtx context.Context, ifName string,ip string,mask string,remoteAddr
 		PacketChan: make(chan []byte, 16384),
 		RemoteAddr: remoteAddr,
 		LocalAddr: localAddr ,
-		HandShakeDone: make(chan struct{}),
+		handshakeReady: make(chan struct{}),
 
 	}, nil
-
-	
 	
 }
 
-
-//var sharedKey = []byte("12345678901234567890123456789012") // 32 bytů
-
-func (v *VNA) Start(){
-	v.RunReader()
-	v.RunSender()
-	v.RunClientListener()
-}
-func (v *VNA) Stop(){
-
-	v.Close()
-}
-
-func (v *VNA) Close() {
-	v.closeOnce.Do(func (){
-		
-		////close all goruntines
-		v.cancel()
-		
-		///end session
-		v.Session.End()
-		
-		// cleanup route
-    	if v.AdapterIndex != 0 {
-    	    if err := v.RemoveRoute(); err != nil {
-    	        fmt.Println("warning: could not remove route:", err)
-    	    }
-    	}
-
-
-		////wait for goruntines to close
-		v.wg.Wait()
-
-		/////Close UDP connection
-		v.Conn.Close()
-
-		///delete interface
-		v.Iface.Close()
-
-	})
-
-}

@@ -47,6 +47,7 @@ func main() {
 	}
 
 	vna.Start()	
+	
 	log.Println("VNA běží — stiskni Ctrl+C pro ukončení")
     <-rootCtx.Done()
     log.Println("main exiting")

@@ -1,33 +1,33 @@
 package vna
 
-func (v *VNA) RunReader() {
-	v.wg.Add(1)
-	go func() {
-		defer v.wg.Done()
-		for {
+import "time"
 
-			if v.CtxStopped() {
-				return
+func (v *VNA) runReader() {
 
-			}
+	defer v.wg.Done()
 
-			pkt, err := v.Session.ReceivePacket()
-			if err != nil {
-				//fmt.Println("read error:", err)
-				continue
-
-			}
-
-			copyPkt := make([]byte, len(pkt))
-			copy(copyPkt, pkt)
-
-			select {
-			case v.PacketChan <- copyPkt:
-			default:
-			}
-
-			// free buffer floyd
-			v.Session.ReleaseReceivePacket(pkt)
+	for {
+		if v.CtxStopped() {
+			return
 		}
-	}()
+		////win tun pkt
+		pkt, err := v.Session.ReceivePacket()
+
+		if err != nil {
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		///create own pkt
+		copyPkt := make([]byte, len(pkt))
+		copy(copyPkt, pkt)
+		
+		select {
+		case v.PacketChan <- copyPkt:
+		default:
+
+		}
+
+		// free buffer floyd
+		v.Session.ReleaseReceivePacket(pkt)
+	}
 }
