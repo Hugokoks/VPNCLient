@@ -54,7 +54,10 @@ func (v *VNA) Handshake() error {
 	// ---------------------------------------------------------------------
 	// Send client's ephemeral public key to the server
 	// --------------------------------------------------------------------
-	if _, err := v.Conn.Write(clientPub[:]); err != nil {
+
+	pkt := buildPacket(PacketHandshake,clientPub[:])
+
+	if _, err := v.Conn.Write(pkt); err != nil {
 		return fmt.Errorf("selhalo odeslání client pub: %w", err)
 	}
 

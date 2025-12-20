@@ -3,6 +3,7 @@ package vna
 import (
 	"VPNClient/crypted"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -19,10 +20,21 @@ func (v *VNA) runSender() {
 			if !ok || pkt == nil {
 				return
 			}
-			_ = v.Conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
-			if err := crypted.SendEncrypted(v.Aead, v.Conn, pkt); err != nil {
+						
+			encrypted ,err := crypted.SendEncrypted(v.Aead, pkt); 
+
+			if err != nil {
 				fmt.Println("udp write error:", err)
 			}
+
+			typedPkt := buildPacket(PacketData,encrypted)
+			
+			_ = v.Conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+
+			if _,err := v.Conn.Write(typedPkt); err != nil{
+				log.Println("udp write error:", err)
+			}
+
 		}
 	}
 }

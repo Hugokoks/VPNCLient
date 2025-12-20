@@ -8,16 +8,15 @@ import (
 	"net"
 )
 
-func SendEncrypted(aead cipher.AEAD, conn *net.UDPConn, plain []byte) error {
+func SendEncrypted(aead cipher.AEAD, plain []byte) ([] byte, error) {
 	nonce := make([]byte, aead.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return fmt.Errorf("generování nonce selhalo: %w", err)
+		return nil, fmt.Errorf("generování nonce selhalo: %w", err)
 	}
 
-	out := aead.Seal(nonce, nonce, plain, nil)
+	encrypted := aead.Seal(nonce, nonce, plain, nil)
 
-	_, err := conn.Write(out)
-	return err
+	return encrypted,nil
 }
 
 func RecvDecrypted(aead cipher.AEAD, conn *net.UDPConn, buf []byte) ([]byte, error) {
