@@ -15,7 +15,6 @@ import (
 
 func main() {
 	////root context 
-
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	
 	_ = godotenv.Load() 
@@ -33,22 +32,28 @@ func main() {
 		rootCancel()
 	}()
 
-	////Create Virtual Network Adapter
-	vna, err := vna.New(rootCtx,"vpn0","10.0.0.2","255.255.255.255","192.168.0.50:5000",":5000")
+	////=============CREATE VNA OBJECT=============
+	vna, err := vna.New(rootCtx,"vpn0","192.168.0.50:5000",":5000")	
 	
 	if err != nil {
 		log.Fatalf("nepovedlo se vytvořit VNA: %v", err)
 	}
-
+	
+	////stop lifecycle
     defer vna.Stop()
-	if err := vna.SetupAdapter(); err != nil{
+	
+
+	////=============BOOT VNA=============
+	if err := vna.Boot(); err != nil{
 		fmt.Println(err)
 		rootCancel();
 	}
 
+
+	//// ===========START LIFECYCLE=============
 	vna.Start()	
 	
-	log.Println("VNA běží — stiskni Ctrl+C pro ukončení")
+	log.Println("VNA running — press Ctrl+C for end")
     <-rootCtx.Done()
     log.Println("main exiting")
 

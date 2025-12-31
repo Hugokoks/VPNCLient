@@ -45,7 +45,7 @@ type VNA struct {
 
 }
 
-func New(rootCtx context.Context, ifName string,ip string,mask string,remoteAddr string,localAddr string) (*VNA, error) {
+func New(rootCtx context.Context, ifName string,remoteAddr string,localAddr string) (*VNA, error) {
 
 	///create virtual network interface
 	iface, err := wintun.CreateAdapter(ifName, "Wintun", nil)
@@ -71,8 +71,6 @@ func New(rootCtx context.Context, ifName string,ip string,mask string,remoteAddr
 		Iface:      iface,
 		Session:    sess,
 		IfName:     ifName,
-		IP: 		ip,
-		Mask: 		mask,
 		ctx:        ctx,
 		cancel:     cancel,
 		PacketChan: make(chan []byte, 16384),
