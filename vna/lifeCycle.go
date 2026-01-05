@@ -2,23 +2,28 @@ package vna
 
 import "fmt"
 
-func (v *VNA) Start(){
+func (v *VNA) Start() {
 	v.wg.Add(1)
-	go v.handshakeLoop(3)	
+	go v.handshakeLoop(3)
 
-	// Start blocks until handshake is successfully completed
-	<- v.handshakeReady
-	
+	select {
+	case <-v.handshakeReady:
+		// handshake OK, pokračujeme
+	case <-v.ctx.Done():
+		// shutdown request (Ctrl+C)
+		return
+	}
+
 	v.wg.Add(1)
 	go v.runReader()
-	
+
 	v.wg.Add(1)
 	go v.runSender()
-	
+
 	v.wg.Add(1)
 	go v.runClientListener()
-
 }
+
 func (v *VNA) Stop() {
 
 	v.Close()

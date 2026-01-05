@@ -1,19 +1,34 @@
 package vna
 
-import "fmt"
+import (
+	"VPNClient/keys"
+	"fmt"
+)
 
 func (v *VNA) Boot() error {
+	
+
+	var cryptoKeys keys.CryptoKeys
+
+	if err := cryptoKeys.LoadOrCreateClientIdentity(); err != nil{
+
+		return fmt.Errorf("failed to obtain clientPub and clientPriv %w",err)
+
+	}
+
+	if err := cryptoKeys.LoadServerPublicKey(); err != nil{
+
+		return fmt.Errorf("failed to obtain serverPub %w",err)
+	}
+	
+	v.Keys = cryptoKeys
 
 	// ============ SET UDP CONNECTION ============
 	if err := v.InitConnection(); err != nil {
 		
 		return fmt.Errorf("UDP init connection failed %v", err)
 	}
-
-	// ============ CREATE CryptoKeys Struct and load it in vna ============
-	if err := v.LoadCryptoKeys(); err != nil {
-        return fmt.Errorf("crypto init: %w", err)
-    }
+	
 
 	if err := v.RequestIP(); err != nil {
         return fmt.Errorf("ip request: %w", err)

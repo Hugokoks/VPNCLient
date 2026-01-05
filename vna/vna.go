@@ -1,20 +1,15 @@
 package vna
 
 import (
+	"VPNClient/keys"
 	"context"
 	"crypto/cipher"
-	"crypto/ed25519"
 	"fmt"
 	"net"
 	"sync"
 
 	"golang.zx2c4.com/wintun"
 )
-type CryptoKeys struct{
-
-    ServerPub ed25519.PublicKey
-    SharedKey []byte 
-}
 
 ////struct for windows
 type VNA struct {
@@ -41,7 +36,7 @@ type VNA struct {
 
 
 	Aead cipher.AEAD
-	Keys CryptoKeys
+	Keys keys.CryptoKeys
 
 }
 

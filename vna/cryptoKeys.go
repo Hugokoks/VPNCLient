@@ -1,6 +1,7 @@
 package vna
 
 import (
+	"VPNClient/keys"
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
@@ -24,7 +25,7 @@ func (v *VNA )LoadCryptoKeys()  error {
 		return fmt.Errorf("SERVER_PUBLIC_KEY: musí být %d bytů, má %d", ed25519.PublicKeySize, len(pubBytes))
 	}
 
-	cryptoKeys := CryptoKeys{
+	cryptoKeys := keys.CryptoKeys{
 		ServerPub: ed25519.PublicKey(pubBytes), 
 		SharedKey: nil,                         
 	}
