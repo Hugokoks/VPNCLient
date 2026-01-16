@@ -3,10 +3,11 @@ package vna
 type PacketType byte
 
 const (
-	PacketIPRequest  PacketType = 1
-	PacketIPResponse PacketType = 2
-	PacketHandshake  PacketType = 3
-	PacketData       PacketType = 4
+	PacketIPRequest    PacketType = 1
+	PacketIPResponse   PacketType = 2
+	PacketHandshakeReq PacketType = 3
+	PacketHandshakeRes PacketType = 4
+	PacketData         PacketType = 5
 )
 
 func buildPacket(t PacketType, payload []byte) []byte {

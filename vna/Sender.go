@@ -27,7 +27,11 @@ func (v *VNA) runSender() {
 				fmt.Println("udp write error:", err)
 			}
 
-			typedPkt := buildPacket(PacketData,encrypted)
+			payload := make([]byte, 0, len(v.ClientID)+len(encrypted))
+			payload = append(payload, v.ClientID...)
+			payload = append(payload, encrypted...)
+
+			typedPkt := buildPacket(PacketData,payload)
 			
 			_ = v.Conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
 

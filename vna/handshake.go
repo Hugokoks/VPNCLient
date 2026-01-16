@@ -26,39 +26,42 @@ import (
 // If any step fails, the handshake is aborted and no crypto state is installed.
 
 func (v *VNA) Handshake() error {
-	// Ensure the server's long-term public key is loaded.
-	// Without this key, the server identity cannot be verified.
-	if len(v.Keys.ServerPub) == 0 {
-		return fmt.Errorf("serverový veřejný klíč není načten")
-	}
 
 	// ---------------------------------------------------------------------
 	// Generate client's ephemeral private key
 	// ---------------------------------------------------------------------
-	var clientPriv [32]byte
-	if _, err := io.ReadFull(rand.Reader, clientPriv[:]); err != nil {
+	var clientEphPriv [32]byte
+	if _, err := io.ReadFull(rand.Reader, clientEphPriv[:]); err != nil {
 		return fmt.Errorf("generování efemerního klíče: %w", err)
 	}
 
 	// Clamp the private key as required by Curve25519.	
-	clientPriv[0] &= 248
-	clientPriv[31] &= 127
-	clientPriv[31] |= 64
+	clientEphPriv[0] &= 248
+	clientEphPriv[31] &= 127
+	clientEphPriv[31] |= 64
 
 	// ---------------------------------------------------------------------
 	// 2. Compute client's ephemeral public key
 	// ---------------------------------------------------------------------	
-	var clientPub [32]byte
-	curve25519.ScalarBaseMult(&clientPub, &clientPriv)
+	var clientEphPub [32]byte
+	curve25519.ScalarBaseMult(&clientEphPub, &clientEphPriv)
 
 	// ---------------------------------------------------------------------
 	// Send client's ephemeral public key to the server
 	// --------------------------------------------------------------------
 
-	pkt := buildPacket(PacketHandshake,clientPub[:])
+	signatureReq := ed25519.Sign(v.Keys.ClientPriv, clientEphPub[:])
+
+	payload := make([]byte, 0, 32+32+64)
+	payload = append(payload, v.Keys.ClientPub...)   // client identity
+	payload = append(payload, clientEphPub[:]...)    // ephemeral pub
+	payload = append(payload, signatureReq...)   
+
+
+	pkt := buildPacket(PacketHandshakeReq,payload)
 
 	if _, err := v.Conn.Write(pkt); err != nil {
-		return fmt.Errorf("selhalo odeslání client pub: %w", err)
+		return fmt.Errorf("failed to send client pub: %w", err)
 	}
 
 	// ---------------------------------------------------------------------
@@ -66,21 +69,34 @@ func (v *VNA) Handshake() error {
 	//    [32 bytes server ephemeral public key]
 	//    [64 bytes Ed25519 signature over server ephemeral public key]
 	// ---------------------------------------------------------------------	
-	response := make([]byte, 96)
-	if _, err := io.ReadFull(v.Conn, response); err != nil {
-		return fmt.Errorf("selhalo čtení odpovědi serveru: %w", err)
+	res := make([]byte, 1+32+32+64)
+	if _, err := io.ReadFull(v.Conn, res); err != nil {
+		return fmt.Errorf("failed to read server response: %w", err)
 	}
 
-	serverEphPub := response[:32]
-	signature := response[32:]
+	if PacketType(res[0]) != PacketHandshakeRes{
+
+		return fmt.Errorf("unexpected packet type: %d", res[0])
+	}
+
+	payloadRes := res[1:]
+
+	clientID     := payloadRes[0:32]
+	serverEphPub := payloadRes[32:64]
+	signatureRes := payloadRes[64:128]
 
 	// ---------------------------------------------------------------------
 	// Verify server identity
 	// ---------------------------------------------------------------------
 	// The server signs its ephemeral public key with its long-term Ed25519 key.
 	// This prevents MITM attacks and authenticates the server.
-	if !ed25519.Verify(v.Keys.ServerPub, serverEphPub, signature) {
-		return fmt.Errorf("NEPLATNÝ PODPIS SERVERU – možné MITM!")
+	signedData := make([]byte, 0, 64)
+
+	signedData = append(signedData, clientID...)
+	signedData = append(signedData, serverEphPub...)
+
+	if !ed25519.Verify(v.Keys.ServerPub, signedData, signatureRes) {
+		return fmt.Errorf("NEPLATNÝ PODPIS SERVERU – možné MITM")
 	}
 
 	// ---------------------------------------------------------------------
@@ -91,7 +107,7 @@ func (v *VNA) Handshake() error {
 	
 	
 	var sharedSecret [32]byte
-	curve25519.ScalarMult(&sharedSecret, &clientPriv, &serverPub)
+	curve25519.ScalarMult(&sharedSecret, &clientEphPriv, &serverPub)
 
 	// ---------------------------------------------------------------------
 	// 7. Derive symmetric encryption key from shared secret
@@ -109,6 +125,10 @@ func (v *VNA) Handshake() error {
 	}
 	v.Aead = aead
 	
+	// Initialize Client ID
+	v.ClientID = make([]byte, 32)
+	copy(v.ClientID, clientID)
+
 
 	fmt.Println("Handshake úspěšný – šifrovací klíč připraven")
 	return nil
@@ -129,6 +149,7 @@ func (v *VNA) handshakeLoop(maxRetries int){
 		}
 
 		select {
+		
 		///try again delay	
 		case <-time.After(2 * time.Second):
 		

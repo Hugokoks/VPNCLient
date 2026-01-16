@@ -35,8 +35,10 @@ type VNA struct {
 	handshakeReady chan struct{}
 
 
+	////In future make client struct
 	Aead cipher.AEAD
 	Keys keys.CryptoKeys
+	ClientID []byte
 
 }
 
