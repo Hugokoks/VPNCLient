@@ -8,7 +8,6 @@ and forwards network traffic through a virtual tunnel interface.
 
 This project is intended as a learning exercise focused on low-level networking,
 secure communication, and protocol implementation.
-This client implementation is for windows OS you also need wintun driver.
 
 ---
 
@@ -45,6 +44,8 @@ VPN internals and secure tunneling mechanisms.
 Before running the client, you must configure the VPN server address.
 
 Open `main.go` and update the server address to match your environment:
+
+Wintun driver required!!
 
 ---
 
