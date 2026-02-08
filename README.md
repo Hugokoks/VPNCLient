@@ -8,6 +8,7 @@ and forwards network traffic through a virtual tunnel interface.
 
 This project is intended as a learning exercise focused on low-level networking,
 secure communication, and protocol implementation.
+This client implementation is for windows OS you also need wintun driver.
 
 ---
 
